@@ -4,18 +4,21 @@ use rust_extensions::{ApplicationStates, Logger, MyTimer, MyTimerTick};
 use serde_derive::Serialize;
 
 pub struct MyTelemetryWriter {
-    url: String,
-    app_name: String,
     timer: MyTimer,
+    telemetry_timer: Arc<TelemetryTimer>,
 }
 
 impl MyTelemetryWriter {
     pub fn new(url: String, app_name: String) -> Self {
-        Self {
-            url,
-            app_name,
+        let mut result = Self {
             timer: MyTimer::new(Duration::from_secs(1)),
-        }
+            telemetry_timer: Arc::new(TelemetryTimer { url, app_name }),
+        };
+
+        result
+            .timer
+            .register_timer("TelemetryWriterTimer", result.telemetry_timer.clone());
+        result
     }
 
     pub fn start(
@@ -30,8 +33,13 @@ impl MyTelemetryWriter {
     }
 }
 
+pub struct TelemetryTimer {
+    url: String,
+    app_name: String,
+}
+
 #[async_trait::async_trait]
-impl MyTimerTick for MyTelemetryWriter {
+impl MyTimerTick for TelemetryTimer {
     async fn tick(&self) {
         let to_write = {
             let mut write_access = my_telemetry::TELEMETRY_INTERFACE
