@@ -82,7 +82,7 @@ impl MyTimerTick for TelemetryTimer {
             .await;
 
         if let Err(err) = flurl {
-            panic!("Can not write telemetry: {:?}", err);
+            println!("Can not write telemetry: {:?}", err);
         }
     }
 }
