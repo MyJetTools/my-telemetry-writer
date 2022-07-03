@@ -30,6 +30,7 @@ impl MyTelemetryWriter {
             .writer_is_set
             .store(true, std::sync::atomic::Ordering::SeqCst);
         self.timer.start(app_states, logger);
+        println!("Telemetry writer is started");
     }
 }
 
