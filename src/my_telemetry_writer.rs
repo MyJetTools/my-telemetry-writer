@@ -67,6 +67,7 @@ impl MyTimerTick for TelemetryTimer {
                 event_data: itm.data,
                 success: itm.success,
                 fail: itm.fail,
+                ip: itm.ip,
             };
 
             json_model.push(json_item);
@@ -92,7 +93,6 @@ pub struct TelemetryHttpModel {
     pub process_id: i64,
     #[serde(rename = "started")]
     pub started: i64,
-
     #[serde(rename = "ended")]
     pub ended: i64,
     #[serde(rename = "serviceName")]
@@ -101,4 +101,5 @@ pub struct TelemetryHttpModel {
     pub event_data: String,
     pub success: Option<String>,
     pub fail: Option<String>,
+    pub ip: Option<String>,
 }
