@@ -26,6 +26,10 @@ impl MyTelemetryWriter {
         app_states: Arc<dyn ApplicationStates + Send + Sync + 'static>,
         logger: Arc<dyn Logger + Send + Sync + 'static>,
     ) {
+        if my_telemetry::TELEMETRY_INTERFACE.is_telemetry_set_up() {
+            return;
+        }
+
         my_telemetry::TELEMETRY_INTERFACE
             .writer_is_set
             .store(true, std::sync::atomic::Ordering::SeqCst);
