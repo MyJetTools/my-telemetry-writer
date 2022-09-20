@@ -85,7 +85,7 @@ impl MyTimerTick for TelemetryTimer {
 
         let body = serde_json::to_vec(&json_model).unwrap();
 
-        let url = self.settings.get_telemetry_settings().await;
+        let url = self.settings.get_telemetry_url().await;
 
         let flurl = flurl::FlUrl::new(url.as_str(), None)
             .append_path_segment("api")
