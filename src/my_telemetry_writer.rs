@@ -3,16 +3,21 @@ use std::{sync::Arc, time::Duration};
 use rust_extensions::{ApplicationStates, Logger, MyTimer, MyTimerTick};
 use serde_derive::Serialize;
 
+use crate::MyTelemetrySettings;
+
 pub struct MyTelemetryWriter {
     timer: MyTimer,
     telemetry_timer: Arc<TelemetryTimer>,
 }
 
 impl MyTelemetryWriter {
-    pub fn new(url: String, app_name: String) -> Self {
+    pub fn new(
+        app_name: String,
+        settings: Arc<dyn MyTelemetrySettings + Send + Sync + 'static>,
+    ) -> Self {
         let mut result = Self {
             timer: MyTimer::new(Duration::from_secs(1)),
-            telemetry_timer: Arc::new(TelemetryTimer { url, app_name }),
+            telemetry_timer: Arc::new(TelemetryTimer { settings, app_name }),
         };
 
         result
@@ -39,7 +44,7 @@ impl MyTelemetryWriter {
 }
 
 pub struct TelemetryTimer {
-    url: String,
+    settings: Arc<dyn MyTelemetrySettings + Send + Sync + 'static>,
     app_name: String,
 }
 
@@ -80,7 +85,9 @@ impl MyTimerTick for TelemetryTimer {
 
         let body = serde_json::to_vec(&json_model).unwrap();
 
-        let flurl = flurl::FlUrl::new(self.url.as_str(), None)
+        let url = self.settings.get_telemetry_settings().await;
+
+        let flurl = flurl::FlUrl::new(url.as_str(), None)
             .append_path_segment("api")
             .append_path_segment("add")
             .post(Some(body))
