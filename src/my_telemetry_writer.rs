@@ -87,7 +87,7 @@ impl MyTimerTick for TelemetryTimer {
 
         let url = self.settings.get_telemetry_url().await;
 
-        let flurl = flurl::FlUrl::new(url.as_str(), None)
+        let flurl = flurl::FlUrl::new(url.as_str())
             .append_path_segment("api")
             .append_path_segment("add")
             .post(Some(body))
