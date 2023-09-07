@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use rust_extensions::{ApplicationStates, Logger, MyTimer, MyTimerTick};
+use rust_extensions::{ApplicationStates, Logger, MyTimer, MyTimerTick, StrOrString};
 use serde_derive::Serialize;
 
 use crate::MyTelemetrySettings;
@@ -12,9 +12,10 @@ pub struct MyTelemetryWriter {
 
 impl MyTelemetryWriter {
     pub fn new(
-        app_name: String,
+        app_name: impl Into<StrOrString<'static>>,
         settings: Arc<dyn MyTelemetrySettings + Send + Sync + 'static>,
     ) -> Self {
+        let app_name = app_name.into();
         let mut result = Self {
             timer: MyTimer::new(Duration::from_secs(1)),
             telemetry_timer: Arc::new(TelemetryTimer { settings, app_name }),
@@ -45,7 +46,7 @@ impl MyTelemetryWriter {
 
 pub struct TelemetryTimer {
     settings: Arc<dyn MyTelemetrySettings + Send + Sync + 'static>,
-    app_name: String,
+    app_name: StrOrString<'static>,
 }
 
 #[async_trait::async_trait]
@@ -73,7 +74,7 @@ impl MyTimerTick for TelemetryTimer {
                 process_id: itm.process_id,
                 started: itm.started,
                 ended: itm.finished,
-                service_name: self.app_name.clone(),
+                service_name: self.app_name.as_str().to_string(),
                 event_data: itm.data,
                 success: itm.success,
                 fail: itm.fail,
