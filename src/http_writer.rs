@@ -43,7 +43,7 @@ pub async fn write_as_http(url: &str, app_name: &str, to_write: Vec<TelemetryEve
         .await;
 
     if let Err(err) = flurl {
-        println!("Can not write telemetry: {:?}", err);
+        println!("Can not write HTTP telemetry: {:?}", err);
         return false;
     }
 

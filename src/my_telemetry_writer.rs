@@ -70,6 +70,7 @@ impl TelemetryTimer {
     async fn detect_write_mode(&self) {
         if self.grpc_client.is_grpc().await {
             self.write_mode.set_write_mode(WriteMode::Grpc);
+            return;
         }
 
         self.write_mode.set_write_mode(WriteMode::Http);
