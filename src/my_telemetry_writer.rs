@@ -1,9 +1,12 @@
 use std::{sync::Arc, time::Duration};
 
 use rust_extensions::{ApplicationStates, Logger, MyTimer, MyTimerTick, StrOrString};
-use serde_derive::Serialize;
 
-use crate::MyTelemetrySettings;
+use crate::{
+    grpc_writer::GrpcClient,
+    write_mode::{WriteMode, WriteModeKeeper},
+    MyTelemetrySettings,
+};
 
 pub struct MyTelemetryWriter {
     timer: MyTimer,
@@ -18,7 +21,7 @@ impl MyTelemetryWriter {
         let app_name = app_name.into();
         let mut result = Self {
             timer: MyTimer::new(Duration::from_secs(1)),
-            telemetry_timer: Arc::new(TelemetryTimer { settings, app_name }),
+            telemetry_timer: Arc::new(TelemetryTimer::new(settings, app_name)),
         };
 
         result
@@ -47,12 +50,42 @@ impl MyTelemetryWriter {
 pub struct TelemetryTimer {
     settings: Arc<dyn MyTelemetrySettings + Send + Sync + 'static>,
     app_name: StrOrString<'static>,
+    write_mode: Arc<WriteModeKeeper>,
+    grpc_client: GrpcClient,
+}
+
+impl TelemetryTimer {
+    pub fn new(
+        settings: Arc<dyn MyTelemetrySettings + Send + Sync + 'static>,
+        app_name: StrOrString<'static>,
+    ) -> Self {
+        Self {
+            app_name,
+            write_mode: Arc::new(WriteModeKeeper::new()),
+            grpc_client: GrpcClient::new(settings.clone()),
+            settings,
+        }
+    }
+
+    async fn detect_write_mode(&self) {
+        if self.grpc_client.is_grpc().await {
+            self.write_mode.set_write_mode(WriteMode::Grpc);
+        }
+
+        self.write_mode.set_write_mode(WriteMode::Http);
+    }
 }
 
 #[async_trait::async_trait]
 impl MyTimerTick for TelemetryTimer {
     async fn tick(&self) {
         let to_write = {
+            let write_mode = self.write_mode.get_write_mode();
+
+            if write_mode.is_unknown() {
+                self.detect_write_mode().await;
+            }
+
             let mut write_access = my_telemetry::TELEMETRY_INTERFACE
                 .telemetry_collector
                 .lock()
@@ -67,52 +100,31 @@ impl MyTimerTick for TelemetryTimer {
 
         let to_write = to_write.unwrap();
 
-        let mut json_model = Vec::with_capacity(to_write.len());
-
-        for itm in to_write {
-            let json_item = TelemetryHttpModel {
-                process_id: itm.process_id,
-                started: itm.started,
-                ended: itm.finished,
-                service_name: self.app_name.as_str().to_string(),
-                event_data: itm.data,
-                success: itm.success,
-                fail: itm.fail,
-                ip: itm.ip,
-            };
-
-            json_model.push(json_item);
-        }
-
-        let body = serde_json::to_vec(&json_model).unwrap();
-
-        let url = self.settings.get_telemetry_url().await;
-
-        let flurl = flurl::FlUrl::new(url.as_str())
-            .append_path_segment("api")
-            .append_path_segment("add")
-            .post(Some(body))
-            .await;
-
-        if let Err(err) = flurl {
-            println!("Can not write telemetry: {:?}", err);
+        match self.write_mode.get_write_mode() {
+            WriteMode::Unknown => {
+                println!("Somehow we are unknown where to write telemetry");
+            }
+            WriteMode::Grpc => {
+                if !self
+                    .grpc_client
+                    .write_events(self.app_name.as_str(), to_write)
+                    .await
+                {
+                    self.write_mode.set_write_mode(WriteMode::Unknown);
+                }
+            }
+            WriteMode::Http => {
+                let url = self.settings.get_telemetry_url().await;
+                if !crate::http_writer::write_as_http(
+                    url.as_str(),
+                    self.app_name.as_str(),
+                    to_write,
+                )
+                .await
+                {
+                    self.write_mode.set_write_mode(WriteMode::Unknown);
+                }
+            }
         }
     }
-}
-
-#[derive(Serialize)]
-pub struct TelemetryHttpModel {
-    #[serde(rename = "processId")]
-    pub process_id: i64,
-    #[serde(rename = "started")]
-    pub started: i64,
-    #[serde(rename = "ended")]
-    pub ended: i64,
-    #[serde(rename = "serviceName")]
-    pub service_name: String,
-    #[serde(rename = "eventData")]
-    pub event_data: String,
-    pub success: Option<String>,
-    pub fail: Option<String>,
-    pub ip: Option<String>,
 }

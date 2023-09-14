@@ -1,0 +1,28 @@
+
+syntax = "proto3";
+import "google/protobuf/empty.proto";
+package writer;
+
+
+message EventGrpcTag{
+    string Key = 1;
+    string Value = 2;
+}
+
+
+message TelemetryGrpcEvent {
+    int64 ProcessId = 1;
+    int64 StartedAt = 2;
+    int64 FinishedAt = 3;
+    string ServiceName = 4;
+    string EventData = 5;
+    optional string Success = 6;
+    optional string Fail = 7;
+    repeated EventGrpcTag Tags = 8;
+}
+
+service TelemetryWriter {
+    rpc Upload(stream TelemetryGrpcEvent) returns (google.protobuf.Empty);
+    rpc Ping(google.protobuf.Empty) returns (google.protobuf.Empty);
+
+ }
