@@ -5,6 +5,20 @@ pub async fn write_as_http(url: &str, app_name: &str, to_write: Vec<TelemetryEve
     let mut json_model = Vec::with_capacity(to_write.len());
 
     for itm in to_write {
+        let tags = if let Some(tags_to_write) = itm.tags {
+            let mut to_replace = Vec::new();
+            for tag_to_write in tags_to_write {
+                to_replace.push(TelemetryHttpTag {
+                    key: tag_to_write.key,
+                    value: tag_to_write.value,
+                });
+            }
+
+            Some(to_replace)
+        } else {
+            None
+        };
+
         let json_item = TelemetryHttpModel {
             process_id: itm.process_id,
             started: itm.started,
@@ -13,7 +27,8 @@ pub async fn write_as_http(url: &str, app_name: &str, to_write: Vec<TelemetryEve
             event_data: itm.data,
             success: itm.success,
             fail: itm.fail,
-            ip: itm.ip,
+            ip: None,
+            tags,
         };
 
         json_model.push(json_item);
@@ -50,4 +65,10 @@ pub struct TelemetryHttpModel {
     pub success: Option<String>,
     pub fail: Option<String>,
     pub ip: Option<String>,
+    pub tags: Option<Vec<TelemetryHttpTag>>,
+}
+#[derive(Serialize)]
+pub struct TelemetryHttpTag {
+    pub key: String,
+    pub value: String,
 }
