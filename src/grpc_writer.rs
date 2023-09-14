@@ -57,6 +57,7 @@ impl GrpcClient {
         if write_access.is_none() {
             let channel = create_channel(self.settings.get_telemetry_url().await).await;
             if channel.is_none() {
+                println!("Can not create MyTelemetry GRPC channel");
                 return false;
             }
 
@@ -94,6 +95,7 @@ impl GrpcClient {
         let result = tokio::time::timeout(GRPC_TIMEOUT, future).await;
 
         if result.is_err() {
+            println!("Upload to GRPC channel timeout");
             *write_access = None;
             return false;
         }
@@ -101,6 +103,7 @@ impl GrpcClient {
         let result = result.unwrap();
 
         if result.is_err() {
+            println!("Upload to GRPC channel had error");
             *write_access = None;
             return false;
         }
